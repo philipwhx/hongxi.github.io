@@ -1,0 +1,105 @@
+大语言模型：
+  底层结构：基本上都是基于Transformer的一种结构，各个大语言模型从结构上来讲，区别仅在于：层次的数量、神经元的数量、各个组件的顺序、位置编码、Token的处理方式;
+
+T5ForConditionalGeneration
+    底层：12层的transformer encoder + 12层的transformer decoder结构
+    变动：
+        输入的embedding进行了更改: 只有token embedding、encoder和decoder共享embedding table
+        在encoder和decoder的第一层attention中加入了相对位置编码
+        FFN中的激活函数默认从relu更改为gated-gelu
+        LayerNorm进行了更改：去除bias和mean操作
+TextGenerationT5Pipeline
+    数据生成的逻辑：
+        -1. 针对输入文本进行token id转换
+        -2. 调用模型对应的encoder对输入文本进行编码器特征的提取
+        -3. 获取预测的模式generation_mode: greedy_search、beam_search
+        -4. 基于预测模型，调用decoder方法进行推理: 一个时刻一个时刻的token进行预测推理
+
+Transformer中的相关概念：
+    绝对位置编码：bert、Transformer原生使用的位置编码方式，直接将位置信息加入到embedding层
+    相对位置编码：直接在attention计算的时候，增加一个位置embedding操作，加入q和k之间的相对位置的向量
+    RoPE(rotary position embedding): 
+        https://zhuanlan.zhihu.com/p/667864459
+        https://zhuanlan.zhihu.com/p/645263524
+    
+    Post-Norm: 将LN放到残差之后，会对所有数据进行正则化，模型的收敛性会更好；
+    Pre-Norm: 将LN放到主体模块之前，只会对一部分数据进行正则化影响，训练会更加稳定，不容易出现梯度消失和梯度爆炸；
+    
+    LayerNorm: 普通的Layer Norm归一化处理：包括标准化处理(均值和方差处理)、缩放、平移: 等价于:norm(x+sublayer(x))
+    RMSNorm：去除均值处理、平移处理，并且方差的计算更改为RMS的计算： https://arxiv.org/abs/1910.07467; 等价于x+sublayer(norm(x))
+    DeepNorm: norm(x+sublayer(norm(x)))
+    
+    生成模式:
+        greedy_search: .
+            在每一个token预测的时候，均选择预测概率最高的token作为下一时刻的输入
+            并且在解码过程中，重复计算解码器各个时刻的预测置信度(实际上是为了计算key/value的值)
+            当缓存past_key_values的时候，就不需要重复计算每个时刻的key/value的值了
+        beam search: 集束搜索
+            在每一个token预测的时候，选择若干个最有可能的候选项，所以在每次token选择的时候，都是在之前选择的基础上，从整个序列置信度最大的角度进行选择当前预测token
+            并且在解码过程中，重复计算解码器各个时刻的预测置信度(实际上是为了计算key/value的值)
+            各个beam之间是相互影响的，是在所有beam的选择中选择置信度最高的前num_beams个预测序列
+            当缓存past_key_values的时候，就不需要重复计算每个时刻的key/value的值了
+        NOTE:
+            num_beams: 给定beam search类型中beam的数量，1表示采用greedy search类型
+            do_sample：True/False 给定是否进行数据采样
+            top_k: greedy_search类型搜索中，给定每次检索的数量
+            penalty_alpha: 对于未来token预测的权重占比衡量比值
+            
+            num_beams=1,do_sample=False,并且top_k和penalty_alpha为None --> greedy_search
+            num_beams=1,do_sample=False,top_k>1, penalty_alpha>0 --> contrastive_search --> 根据下一个的特征情况，选择当前时刻的预测结果
+            num_beams=1,do_sample=True --> sample  --> 和greedy search唯一的区别在于：在选择当前时刻预测token的时候，直接基于预测概率分布，随机选择对应的token index
+            num_beams>1,do_sample=False,num_beam_groups=1 ---> beam search
+            num_beams>1,do_sample=True,num_beam_groups=1 ---> beam_sample --> 和beam search的唯一区别在于：在获取num_beams个候选token的时候，采用随机抽样的方式获取(随机的概率是模型预测的概率分布)
+            num_beams>1,do_sample=True,num_beam_groups=1  ---> group_beam_search
+===================================================================
+https://github.com/chatchat-space/Langchain-Chatchat
+    Linux上进行操作，GPU环境，GPU显存大小至少:24G
+        git clone https://github.com/chatchat-space/Langchain-Chatchat.git
+        cd Langchain-Chatchat
+        pip install -r requirements.txt 
+        # 在安装requirements.txt的时候，会将你本地的torch删除，然后安装一个cpu的torch，所以当pip执行完后，需要卸载torch，然后重新安装GPU版本
+        python copy_config_example.py
+        # 用modelscope的相关代码下载LLM和向量模型文件到当前文件夹中:Langchain-Chatchat
+        snapshot_download("thomas/m3e-base")
+        snapshot_download("ZhipuAI/chatglm2-6b")
+        # 修改basic_config.py的29行: shutil.rmtree(BASE_TEMP_DIR, ignore_errors=True)
+        # 修改配置模型对象: EMBEDDING_MODEL = "m3e-base"   LLM_MODELS = ["chatglm2-6b"] 
+        python init_database.py --recreate-vs  # 针对知识信息进行向量库的构建
+        python startup.py -a
+    参考：
+        https://github.com/tiangolo/fastapi
+        https://github.com/lm-sys/FastChat
+===================================================================
+https://github.com/THUDM/ChatGLM3
+    安装所有的requirements.txt里面的内容，但是注意torch的版本
+    composite_demo: 保存的是网页的代码  streamlit run main.py
+    https://zhuanlan.zhihu.com/p/646831196
+    finetune_chatmodel_demo：Chat模型微调
+        -1. 安装环境: pip install -r requirements.txt
+        -2. 准备数据: 按照格式进行准备
+        -3. 修改sh脚本: 给定原始模型路径以及数据路径
+        -4. 运行脚本进行微调
+        -5. 微调结果应用
+        PT_PATH="../finetune_chatmodel_demo/output/tool_alpaca_pt-20231213-151811-128-2e-2/" streamlit run main.py
+========================================================================
+简历
+  "名片" --> 让公司了解你的第一途径
+  求职的流程：
+    -1. 投递简历
+    -2. 笔试(数据结构、基本算法理论)
+    -3. 面试(N + 1)
+    -4. 背调、offer发放....
+  简历基本的要求：真实、竞争力/亮点、清晰/有条理、技术的深度&广度 --> 突出优点，缺点尽可能的掩盖住
+  简历中必要的模块：
+    个人简介、掌握技能、工作经历、项目经历、毕业院校、个人总结
+  项目经历的写法：
+    -1. 项目背景&项目价值：为什么需要做这个项目？这个项目的意义是什么？
+    -2. 工作内容：实现这个项目的流程 --> 做了什么事儿？用了什么技术解决了什么问题？针对什么技术做了什么改进？
+    NOTE: 重点是业务背景-->建议找一个熟悉的
+
+========================================================================
+整理
+    1. 知识点&面试题总结.txt
+    2. NLP自然语言.pdf
+    NOTE: 整理的相关内容压缩包邮件发1941046624@qq.com抄送834822435@qq.com
+

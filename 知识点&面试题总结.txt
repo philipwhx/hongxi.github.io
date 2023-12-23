@@ -1,0 +1,29 @@
+0、NLP技术点/知识点的发展脉络：Word2Vec --> RNN/LSTM --> Seq2Seq --> Transformer --> Attention --> Bert/GPT
+1、如何分词?
+2、针对专业名词如何保证能够正确分词?
+3、手写BOW/TF以及TFIDF的实现代码?
+4、Word2Vec两种结构是什么？两种优化方式是什么？
+5、Word2Vec的负采样的采样频率计算方式？
+6、Word2Vec训练过程中的数据重采样的频率计算方式？
+7、Word2Vec的重要参数？
+8、你了解哪些词向量提取方式？
+    OneHot ---> LDA主题模型 ---> Word2Vec ---> FastText/cw2vec/... ---> Bert
+9、Word2Vec是什么？
+10、CBOW和Skip-Gram的区别？
+    从结构方面来说 + 从效果差异上来说
+11、你觉得分词和分字有什么区别？
+12、NLP中分类主要包括以下几类：
+    普通文本分类：文本分类、意图识别、情感分析....基于给定的文本，模型预测一个类别标签
+    序列文本建模 --> Seq2Seq/Encoder-Decoder模型：
+        场景：分词、词性标注、命名实体识别、关系抽取、文本生成.....
+13、RNN、LSTM、GRU的结构？
+14、RNN的长时依赖问题/梯度消失问题?以及解决方案？为什么可以解决？
+15、意图识别的理解
+16、4种序列模型结构 + 1种普通模型结构 --> 和任务之间的关系最好可以关联上
+17、Seq2Seq的结构、应用场景
+18、Attention的作用、基本逻辑(QKV)、和Seq2Seq、Transformer的结合
+19、所有Attention的代码实现
+20、Transformer结构(Self-Attention、MaskMultiHeadAttention、MultiHeadAttention、残差、Norm)
+21、Bert的理解(Transformer的Encoder部分、Bert输入、随机Mask过程)
+22、为什么Transformer/RNN中采用LayerNorm，而不是采用BatchNorm？
+23、Transformer中位置编码的相关问题，相对位置编码和绝对位置编码
